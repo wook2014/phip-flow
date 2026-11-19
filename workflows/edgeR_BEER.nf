@@ -31,7 +31,7 @@ process run_BEER {
     input:
     tuple path(phip_data), path("*"), path(edgeR_rds), val(method)
     output:
-    tuple path(phip_data), path("beer*.csv"), path("PhIPData.rds"), val("BEER")
+    tuple path(phip_data), path("{edgeR,beer}*.csv", includeInputs: true), path("PhIPData.rds"), val("BEER")
     shell:    
     """
     run_BEER.Rscript
@@ -40,7 +40,8 @@ process run_BEER {
 }
 
 process publish_rds {
-    publishDir "$params.results/rds_data/", mode: 'copy', overwrite: true
+    publishDir "$params.results/rds_data/", mode: 'copy', overwrite: true, failOnError: true,
+        saveAs: { name -> params.dataset_prefix == 'data' ? name : "${params.dataset_prefix}_${name}" }
     input:
     tuple path(phip_data), path(csvs), path(rds_data), val(method)
     output:

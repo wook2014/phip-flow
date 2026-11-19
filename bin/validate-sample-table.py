@@ -7,11 +7,23 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-s", type=str)
 parser.add_argument("-o", type=str)
 parser.add_argument("--run_zscore_fit_predict", type=str)
+parser.add_argument("--paired_end", choices=("true", "false"), default="false")
 args = parser.parse_args()
 
 sample_table = pd.read_csv(args.s, header=0)
 if "fastq_filepath" not in sample_table.columns:
     raise KeyError("Must provide 'fastq_filepath' column in the table")
+
+if args.paired_end == "true":
+    for column in ("fastq_filepath", "fastq_filepath_r2"):
+        if column not in sample_table.columns:
+            raise KeyError(f"Paired-end samples require the '{column}' column")
+        paths = sample_table[column].fillna("").astype(str).str.strip()
+        missing = paths.index[paths.eq("")]
+        if len(missing):
+            rows = ", ".join(str(index + 1) for index in missing)
+            raise ValueError(f"Missing '{column}' in sample row(s): {rows}")
+        sample_table[column] = paths
 
 assert "sample_id" not in sample_table.columns, "Cannot include a column named 'sample_id' in the sample table"
 

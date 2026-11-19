@@ -3,7 +3,5 @@
 set -euo pipefail
 
 samtools stats !{sam_file} | \
-    grep ^SN | 
-    cut -f 2- | \
-    sed '1p;7p;22p;25p;d' \
+    awk '/^SN\t(raw total sequences|reads mapped|error rate|average quality):\t/ { sub(/^SN\t/, ""); print }' \
     > !{sample_id}.stats

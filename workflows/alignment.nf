@@ -14,7 +14,8 @@ process validate_sample_table {
     validate-sample-table.py \
         -s $samples \
         -o validated_sample_table.csv \
-        --run_zscore_fit_predict ${params.run_zscore_fit_predict}
+        --run_zscore_fit_predict ${params.run_zscore_fit_predict} \
+        --paired_end ${params.paired_end}
     """  
 }
 
@@ -48,6 +49,10 @@ process generate_fasta_reference {
 
 // GENERATE INDEX
 process generate_index {
+    if (params.paired_end.toString() == 'true')
+        label 'bowtie2'
+    // Create the index directory on the host so Nextflow can clean it after Docker runs.
+    beforeScript 'mkdir -p peptide_index'
     input:
     path "oligo_fasta"
     output:
@@ -60,8 +65,10 @@ process generate_index {
 // ALIGN ALL SAMPLES TO THE REFERENCE
 process short_read_alignment {
     label 'alignment_tool'
+    if (params.paired_end.toString() == 'true')
+        label 'bowtie2'
     input:
-    tuple val(sample_id), path(index), path(respective_replicate_path)
+    tuple val(sample_id), path(index), path(read1, stageAs: 'reads/r1/*'), path(read2, stageAs: 'reads/r2/*')
     output:
     tuple val(sample_id), path("${sample_id}.sam")
     shell:
@@ -136,11 +143,15 @@ workflow ALIGN {
         validate_sample_table.out
             .splitCsv(header:true )
             .map{ row -> 
-                tuple(
-                    "peptide_ref",
-                    row.sample_id,
-                    file("$params.reads_prefix/$row.fastq_filepath")
-                ) 
+                def reads_prefix = file(params.reads_prefix)
+                def read1 = file(reads_prefix.resolve(row.fastq_filepath), checkIfExists: true, glob: false)
+                def read2 = []
+                if (params.paired_end.toString() == 'true') {
+                    read2 = file(reads_prefix.resolve(row.fastq_filepath_r2), checkIfExists: true, glob: false)
+                    if (read1.toRealPath() == read2.toRealPath())
+                        error "Sample ${row.sample_id}: R1 and R2 refer to the same FASTQ file"
+                }
+                tuple("peptide_ref", row.sample_id, read1, read2)
             }
             .set { samples_ch }
 
@@ -151,7 +162,8 @@ workflow ALIGN {
                     tuple(
                         sample[1],          // sample_id
                         file(ref[1]),       // index files
-                        file(sample[2]),    // sample path
+                        sample[2],          // R1 or single-end FASTQ
+                        sample[3],          // R2 FASTQ or empty list
                     )
                 }
         ) | (sam_to_counts & sam_to_stats)

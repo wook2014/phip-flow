@@ -14,13 +14,24 @@ or hard-code it (or any other options) here.
 
 set -euo pipefail
 
-STREAM_FILE_CMD=!{params.fastq_stream_func}
-FASTQ=!{respective_replicate_path}
+FASTQ="!{read1}"
 INDEX=!{index}/peptide
 ALIGN_OUT_FN=!{sample_id}.sam
+CPUS=!{task.cpus}
+
+if [[ !{params.paired_end} == true ]]; then
+    BOWTIE2_ARGS=( !{params.bowtie2_optional_args} )
+    bowtie2 "${BOWTIE2_ARGS[@]}" \
+        --no-mixed --no-discordant \
+        -p "$CPUS" -x "$INDEX" \
+        -1 "$FASTQ" -2 "!{read2}" \
+        -S "$ALIGN_OUT_FN"
+    exit 0
+fi
+
+STREAM_FILE_CMD=!{params.fastq_stream_func}
 READ_LENGTH=!{params.read_length}
 PEPTIDE_LENGTH=!{params.oligo_tile_length}
-CPUS=!{task.cpus}
 MM=!{params.n_mismatches}
 OP_ARGS="!{params.bowtie_optional_args}"
 
@@ -32,7 +43,7 @@ fi
 
 echo $OP_ARGS
 
-$STREAM_FILE_CMD $FASTQ | bowtie \
+$STREAM_FILE_CMD "$FASTQ" | bowtie \
   --trim3 $TRIM3 \
   --threads $CPUS \
   -n $MM \

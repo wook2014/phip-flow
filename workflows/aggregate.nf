@@ -33,7 +33,8 @@ process aggregate_organisms {
 }
 
 process join_organisms {
-    publishDir "$params.results/aggregated_data/", mode: 'copy', overwrite: true
+    publishDir "$params.results/aggregated_data/", mode: 'copy', overwrite: true, failOnError: true,
+        saveAs: { name -> params.dataset_prefix == 'data' ? name : "${params.dataset_prefix}_${name}" }
     input: path "input/"
     output: path "*.csv.gz"
     when: params.summarize_by_organism

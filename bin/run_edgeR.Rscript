@@ -75,19 +75,21 @@ edgeR_out <- runEdgeR(
     assay.names = c(logfc = "edgeR_logfc",
                     prob = "edgeR_logpval"))
 
-print("Adding edgeR hits")
-assay(edgeR_out, "edgeR_hits") <- apply(
-  assay(edgeR_out, "edgeR_logpval"), 2, 
-  function(sample){
-    pval <- 10^(-sample)
-    p.adjust(pval, method = "BH") < edgeR_threshold
-  })
+print("Adding edgeR FDR and hits")
+edgeR_fdr <- assay(edgeR_out, "edgeR_logpval")
+for (sample_index in seq_len(ncol(edgeR_fdr))) {
+    pval <- 10^(-edgeR_fdr[, sample_index])
+    edgeR_fdr[, sample_index] <- p.adjust(pval, method = "BH")
+}
+assay(edgeR_out, "edgeR_fdr") <- edgeR_fdr
+assay(edgeR_out, "edgeR_hits") <- edgeR_fdr < edgeR_threshold
 
 saveRDS(edgeR_out, "PhIPData.rds")
 
 # TODO Do these assay objects save the sample (column) order?
 write.csv(assays(edgeR_out)$edgeR_logpval, file="edgeR_logpval.csv")
 write.csv(assays(edgeR_out)$edgeR_logfc, file="edgeR_logfc.csv")
+write.csv(assays(edgeR_out)$edgeR_fdr, file="edgeR_fdr.csv")
 write.csv(assays(edgeR_out)$edgeR_hits, file="edgeR_hits.csv")
 
 

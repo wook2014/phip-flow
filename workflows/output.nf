@@ -4,7 +4,7 @@
 nextflow.enable.dsl=2
 
 process dump_tall_csv {
-    publishDir "$params.results/tall_data/", mode: 'copy', overwrite: true
+    publishDir "$params.results/tall_data/", mode: 'copy', overwrite: true, failOnError: true
     input: file phip_data
     output: file "*.csv.gz"
     when: params.output_tall_csv
@@ -16,7 +16,7 @@ process dump_tall_csv {
 }
 
 process dump_wide_csv {
-    publishDir "$params.results/wide_data/", mode: 'copy', overwrite: true
+    publishDir "$params.results/wide_data/", mode: 'copy', overwrite: true, failOnError: true
     input: path phip_data
     output: path "*.csv.gz"
     when: params.output_wide_csv || params.summarize_by_organism
@@ -28,13 +28,13 @@ process dump_wide_csv {
 }
 
 process dump_binary {
-    publishDir "$params.results/pickle_data/", mode: 'copy', overwrite: true
-    input: file phip_data
+    publishDir "$params.results/pickle_data/", mode: 'copy', overwrite: true, failOnError: true
+    input: path phip_data, stageAs: 'input/*'
     output: file "${params.dataset_prefix}.phip"
     when: params.output_pickle_xarray
     shell:
     """
-    cp ${phip_data} ${params.dataset_prefix}.phip
+    cp -- "${phip_data}" "${params.dataset_prefix}.phip"
     """
 }
 
